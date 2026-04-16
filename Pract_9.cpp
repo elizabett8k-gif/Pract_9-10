@@ -1,0 +1,290 @@
+﻿#include <iostream>
+#include <fstream>
+#include <cstring>
+#include <cstdio>
+#include <cstdlib>
+
+using namespace std;
+
+const int SZ = 20;
+const int LEN = 50;
+
+enum Genre {
+    ACTION, COMEDY, DRAMA, THRILLER, HORROR, SCI_FI
+};
+
+struct Person {
+    char fn[20];
+    char ln[20];
+};
+
+struct Film {
+    char t[LEN];
+    Person dir;
+    Genre g;
+    int y;
+    int dur;
+    long long bud;
+    float rat;
+    Person act;
+};
+
+const char* genreStr(Genre g) {
+    switch (g) {
+    case ACTION:   return "боевик";
+    case COMEDY:   return "комедия";
+    case DRAMA:    return "драма";
+    case THRILLER: return "триллер";
+    case HORROR:   return "ужасы";
+    case SCI_FI:   return "фантастика";
+    default:       return "неизвестно";
+    }
+}
+
+Film initFilms[SZ] = {
+    { "La La Land",         {"Damien","Chazelle"}, DRAMA, 2016, 128, 30000000, 7.9, {"Ryan","Gosling"} },
+    { "Drive",              {"Nicolas","Winding Refn"}, THRILLER, 2011, 100, 15000000, 7.8, {"Ryan","Gosling"} },
+    { "Crazy Stupid Love",  {"Glenn","Ficarra"}, COMEDY, 2011, 118, 50000000, 7.4, {"Ryan","Gosling"} },
+    { "The Notebook",       {"Nick","Cassavetes"}, DRAMA, 2004, 123, 29000000, 7.8, {"Ryan","Gosling"} },
+    { "Брат",               {"Алексей","Балабанов"}, DRAMA, 1997, 96, 100000, 8.5, {"Сергей","Бодров мл."} },
+    { "Брат 2",             {"Алексей","Балабанов"}, ACTION, 2000, 122, 1500000, 8.3, {"Сергей","Бодров мл."} },
+    { "Москва слезам не верит", {"Владимир","Меньшов"}, DRAMA, 1980, 150, 600000, 8.4, {"Вера","Алентова"} },
+    { "Ирония судьбы",      {"Эльдар","Рязанов"}, COMEDY, 1975, 184, 400000, 8.6, {"Андрей","Мягков"} },
+    { "ДМБ",                {"Роман","Качанов"}, COMEDY, 2000, 78, 50000, 8.2, {"Алексей","Панин"} },
+    { "Жмурки",             {"Алексей","Балабанов"}, COMEDY, 2005, 105, 2000000, 7.9, {"Алексей","Панин"} },
+    { "Se7en",              {"David","Fincher"}, THRILLER, 1995, 127, 33000000, 8.6, {"Brad","Pitt"} },
+    { "Mulholland Drive",   {"David","Lynch"}, THRILLER, 2001, 147, 15000000, 8.0, {"Naomi","Watts"} },
+    { "Nobody",             {"David","Leitch"}, THRILLER, 2021, 92, 16000000, 7.4, {"Bob","Odenkirk"} },
+    { "Dune",               {"Denis","Villeneuve"}, SCI_FI, 2021, 155, 165000000, 8.0, {"Timothee","Chalamet"} },
+    { "Top Gun Maverick",   {"Joseph","Kosinski"}, ACTION, 2022, 131, 170000000, 8.4, {"Tom","Cruise"} },
+    { "Avatar 2",           {"James","Cameron"}, SCI_FI, 2022, 192, 350000000, 7.6, {"Sam","Worthington"} },
+    { "John Wick 4",        {"Chad","Stahelski"}, ACTION, 2023, 169, 100000000, 7.7, {"Keanu","Reeves"} },
+    { "Oppenheimer",        {"Christopher","Nolan"}, DRAMA, 2023, 180, 100000000, 8.5, {"Cillian","Murphy"} },
+    { "Barbie",             {"Greta","Gerwig"}, COMEDY, 2023, 114, 145000000, 7.0, {"Ryan","Gosling"} },
+    { "Левиафан",           {"Андрей","Звягинцев"}, DRAMA, 2014, 141, 7000000, 7.5, {"Алексей","Серебряков"} }
+};
+
+//Чтение из текстового файла и обновление рейтингов
+void updateRatingsFromFile(Film films[], int n, const char* filename) {
+    ifstream fin(filename);
+
+    if (!fin.is_open()) {
+        cout << "Ошибка: не удалось открыть файл " << filename << endl;
+        return;
+    }
+
+    char filmName[LEN];
+    float newRating;
+
+    while (fin >> filmName >> newRating) {
+        for (int i = 0; i < n; i++) {
+            if (strcmp(films[i].t, filmName) == 0) {
+                films[i].rat = newRating;
+                break;
+            }
+        }
+    }
+
+    fin.close();
+}
+
+//Запись в бинарный файл
+void writeToBinaryFile(const char* filename, Film films[], int n) {
+    ofstream fout(filename, ios::binary | ios::out);
+
+    if (!fout.is_open()) {
+        cout << "Ошибка: не удалось открыть файл " << filename << " для записи" << endl;
+        return;
+    }
+
+    fout.write((char*)films, sizeof(Film) * n);
+    fout.close();
+}
+
+//Чтение из бин файла
+void readFromBinaryFile(const char* filename, Film films[], int maxSize) {
+    ifstream fin(filename, ios::binary | ios::in);
+
+    if (!fin.is_open()) {
+        cout << "Ошибка: не удалось открыть файл " << filename << " для чтения" << endl;
+        return;
+    }
+
+    fin.seekg(0, ios::end);
+    streampos fileSize = fin.tellg();
+    fin.seekg(0, ios::beg);
+
+    int recordsToRead = fileSize / sizeof(Film);
+    if (recordsToRead > maxSize) recordsToRead = maxSize;
+
+    fin.read((char*)films, sizeof(Film) * recordsToRead);
+    fin.close();
+}
+
+
+int filterGosling(Film src[], int n, Film dst[]) {
+    int cnt = 0;
+    for (int i = 0; i < n; i++)
+        if (strcmp(src[i].act.fn, "Ryan") == 0 && strcmp(src[i].act.ln, "Gosling") == 0)
+            dst[cnt++] = src[i];
+    return cnt;
+}
+
+void sortByTitle(Film a[], int n) {
+    for (int i = 0; i < n - 1; i++)
+        for (int j = 0; j < n - i - 1; j++)
+            if (strcmp(a[j].t, a[j + 1].t) > 0) {
+                Film tmp = a[j];
+                a[j] = a[j + 1];
+                a[j + 1] = tmp;
+            }
+}
+
+void printFilm(Film f) {
+    printf("Название: %s\n", f.t);
+    printf("Режиссёр: %s %s\n", f.dir.fn, f.dir.ln);
+    printf("Жанр: %s\n", genreStr(f.g));
+    printf("Год: %d\n", f.y);
+    printf("Длительность: %d мин\n", f.dur);
+    printf("Бюджет: %lld $\n", f.bud);
+    printf("Рейтинг: %.1f\n", f.rat);
+    printf("Актёр: %s %s\n", f.act.fn, f.act.ln);
+    printf("----------------------\n");
+}
+
+void printByTitle(Film a[], int n, const char* title) {
+    for (int i = 0; i < n; i++)
+        if (strcmp(a[i].t, title) == 0) {
+            printFilm(a[i]);
+            return;
+        }
+    printf("Фильм \"%s\" не найден\n", title);
+}
+
+void top4Expensive(Film src[], int n, Film top[], int& topCnt) {
+    Film tmp[SZ];
+    int tmpCnt = 0;
+    for (int i = 0; i < n; i++)
+        if (src[i].y >= 2020 && src[i].y <= 2029)
+            tmp[tmpCnt++] = src[i];
+
+    for (int i = 0; i < tmpCnt - 1; i++)
+        for (int j = 0; j < tmpCnt - i - 1; j++)
+            if (tmp[j].bud < tmp[j + 1].bud) {
+                Film t = tmp[j];
+                tmp[j] = tmp[j + 1];
+                tmp[j + 1] = t;
+            }
+
+    topCnt = (tmpCnt < 4) ? tmpCnt : 4;
+    for (int i = 0; i < topCnt; i++)
+        top[i] = tmp[i];
+}
+
+void modifyFilm(Film a[], int n, const char* title) {
+    for (int i = 0; i < n; i++) {
+        if (strcmp(a[i].t, title) == 0) {
+            printf("Редактируем фильм: %s\n", title);
+
+            printf("Новое название (было: %s): ", a[i].t);
+            char buf[LEN];
+            scanf_s("%s", buf, (unsigned)sizeof(buf));
+            if (strlen(buf) > 0) strcpy_s(a[i].t, buf);
+
+            printf("Имя режиссёра (было: %s): ", a[i].dir.fn);
+            scanf_s("%s", buf, (unsigned)sizeof(buf));
+            if (strlen(buf) > 0) strcpy_s(a[i].dir.fn, buf);
+
+            printf("Фамилия режиссёра (было: %s): ", a[i].dir.ln);
+            scanf_s("%s", buf, (unsigned)sizeof(buf));
+            if (strlen(buf) > 0) strcpy_s(a[i].dir.ln, buf);
+
+            printf("Жанр (0-5, было: %d): ", a[i].g);
+            int gg;
+            scanf_s("%d", &gg);
+            if (gg >= 0 && gg <= 5) a[i].g = (Genre)gg;
+
+            printf("Год (было: %d): ", a[i].y);
+            scanf_s("%d", &a[i].y);
+
+            printf("Длительность (было: %d): ", a[i].dur);
+            scanf_s("%d", &a[i].dur);
+
+            printf("Бюджет (было: %lld): ", a[i].bud);
+            scanf_s("%lld", &a[i].bud);
+
+            printf("Рейтинг (было: %.1f): ", a[i].rat);
+            scanf_s("%f", &a[i].rat);
+
+            printf("Имя актёра (было: %s): ", a[i].act.fn);
+            scanf_s("%s", buf, (unsigned)sizeof(buf));
+            if (strlen(buf) > 0) strcpy_s(a[i].act.fn, buf);
+
+            printf("Фамилия актёра (было: %s): ", a[i].act.ln);
+            scanf_s("%s", buf, (unsigned)sizeof(buf));
+            if (strlen(buf) > 0) strcpy_s(a[i].act.ln, buf);
+
+            printf("Фильм изменён\n");
+            return;
+        }
+    }
+    printf("Фильм \"%s\" не найден\n", title);
+}
+
+int filterDavidThrillers(Film src[], int n, Film dst[]) {
+    int cnt = 0;
+    for (int i = 0; i < n; i++)
+        if (src[i].g == THRILLER && strcmp(src[i].dir.fn, "David") == 0)
+            dst[cnt++] = src[i];
+    return cnt;
+}
+
+void printArr(Film a[], int n, const char* head) {
+    printf("\n=== %s ===\n", head);
+    if (n == 0)
+        printf("Нет данных\n");
+    else
+        for (int i = 0; i < n; i++)
+            printFilm(a[i]);
+}
+
+int main() {
+    system("dir");
+    setlocale(LC_ALL, "Russian");
+
+    Film all[SZ];
+    for (int i = 0; i < SZ; i++)
+        all[i] = initFilms[i];
+
+    updateRatingsFromFile(all, SZ, "films.txt");
+
+    writeToBinaryFile("films.bin", all, SZ);
+
+    Film loaded[SZ];
+    readFromBinaryFile("films.bin", loaded, SZ);
+
+    Film gos[SZ];
+    int gCnt = filterGosling(all, SZ, gos);
+    sortByTitle(gos, gCnt);
+    printArr(gos, gCnt, "Фильмы с Райаном Гослингом (по алфавиту)");
+
+    printf("\n=== Данные фильма \"Брат\" ===\n");
+    printByTitle(all, SZ, "Брат");
+
+    Film exp[4];
+    int eCnt;
+    top4Expensive(all, SZ, exp, eCnt);
+    printArr(exp, eCnt, "4 самых дорогих фильма 2020-х годов");
+
+    printf("\n=== Изменение фильма \"Жмурки\" ===\n");
+    modifyFilm(all, SZ, "Жмурки");
+
+    printf("\n=== Фильм после изменения ===\n");
+    printByTitle(all, SZ, "Жмурки");
+
+    Film dav[SZ];
+    int dCnt = filterDavidThrillers(all, SZ, dav);
+    printArr(dav, dCnt, "Триллеры с режиссёром по имени Дэвид");
+
+    return 0;
+}
